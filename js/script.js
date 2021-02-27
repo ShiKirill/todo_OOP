@@ -16,8 +16,23 @@ class Todo {
     render() {
         this.todoList.textContent = '';
         this.todoCompleted.textContent = '';
-        this.todoData.forEach(this.createItem.bind(this, ));
+        this.todoData.forEach(this.createItem.bind(this));
         this.addToStorage();
+    }
+
+    editItem(item) {
+        item.setAttribute('contenteditable', 'true');
+        item.focus();
+        item.textContent = item.textContent.trim();
+        item.addEventListener('blur', () => {
+            this.todoData.forEach(elem => {
+                if (item.key === elem.key) {
+                    elem.value = item.textContent;
+                }
+            });
+            item.setAttribute('contenteditable', 'false');
+            this.render();
+        });
     }
 
     handler() {
@@ -28,24 +43,92 @@ class Todo {
                 this.deleteItem(target.closest('.todo-item'));
             } else if (target.classList.contains('todo-complete')) {
                 this.completedItem(target.closest('.todo-item'));
+            } else if (target.closest('.todo-edit')) {
+                this.editItem(target.closest('.todo-item'));
             }
         });
+    }
+
+    deleteAnimation(item, move) {
+        let left = item.offsetLeft;
+        const anim = () => {
+            let idAnim = requestAnimationFrame(anim);
+            if (move < left) {
+                const iterator = -70;
+                left += iterator;
+                item.style.left = left + 'px';
+            } else {
+                cancelAnimationFrame(idAnim);
+                this.todoData.delete(item.key);
+                this.render();
+            }
+        };
+        anim();
     }
 
     deleteItem(item) {
         this.todoData.forEach(elem => {
             if (item.key === elem.key) {
-                this.todoData.delete(item.key);
-                this.render();
+                const move = -item.offsetLeft - item.offsetWidth;
+                const top = item.offsetTop;
+                const left = item.offsetLeft;
+                item.style.position = 'absolute';
+                item.style.left = left + 'px';
+                item.style.top = top + 'px';
+                item.style.zIndex = 10;
+                this.deleteAnimation(item, move);
             }
         });
+    }
+
+    completedAnimation(item, move) {
+        let top = item.offsetTop;
+        let iterator = 15;
+        const anim = () => {
+            let idAnim = requestAnimationFrame(anim);
+            const handler = () => {
+                cancelAnimationFrame(idAnim);
+                this.todoData.get(item.key).completed = !this.todoData.get(item.key).completed;
+                this.render();
+            };
+            if (this.todoData.get(item.key).completed) {
+                if (move < top) {
+                    top -= iterator;
+                    item.style.top = top + 'px';
+                } else {
+                    handler();
+                }
+            } else {
+                if (move > top) {
+                    top += iterator;
+                    item.style.top = top + 'px';
+                } else {
+                    handler();
+                }
+            }
+
+        };
+        anim();
     }
 
     completedItem(item) {
         this.todoData.forEach(elem => {
             if (item.key === elem.key) {
-                this.todoData.get(item.key).completed = !this.todoData.get(item.key).completed;
-                this.render();
+                let move;
+                if (!this.todoData.get(item.key).completed) {
+                    move = this.todoCompleted.offsetTop + item.offsetHeight / 2;
+                } else {
+                    move = this.todoList.offsetTop + item.offsetHeight / 2;
+                }
+                const top = item.offsetTop;
+                const left = item.offsetLeft;
+                const width = item.offsetWidth;
+                item.style.position = 'absolute';
+                item.style.left = left + 'px';
+                item.style.top = top + 'px';
+                item.style.width = width + 'px';
+                item.style.zIndex = 10;
+                this.completedAnimation(item, move);
             }
         });
     }
@@ -57,6 +140,7 @@ class Todo {
         li.insertAdjacentHTML('beforeend', `
         <span class="text-todo">${item.value}</span>
 				<div class="todo-buttons">
+        <button class="todo-edit"></button>
 					<button class="todo-remove"></button>
 					<button class="todo-complete"></button>
 				</div>
